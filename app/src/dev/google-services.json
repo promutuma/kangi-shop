@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "972756416642",
+    "project_id": "kangai-shop",
+    "storage_bucket": "kangai-shop.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:972756416642:android:da3a644d3680f7c5965c9b",
+        "android_client_info": {
+          "package_name": "ke.eelaminnovations.kangaishop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb59yAONi_KoTLlZ4heGjRMilxPn6D83s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:972756416642:android:76ef76b62e817c6d965c9b",
+        "android_client_info": {
+          "package_name": "ke.eelaminnovations.kangaishop.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb59yAONi_KoTLlZ4heGjRMilxPn6D83s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
