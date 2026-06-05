@@ -1,13 +1,13 @@
 package ke.eelaminnovations.kangaishop.utils
 
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
-class BiometricAuthManager(private val activity: ComponentActivity) {
+class BiometricAuthManager(private val activity: FragmentActivity) {
 
     suspend fun authenticate(): BiometricResult = suspendCancellableCoroutine { continuation ->
         val biometricManager = BiometricManager.from(activity)
@@ -23,14 +23,17 @@ class BiometricAuthManager(private val activity: ComponentActivity) {
         val executor = ContextCompat.getMainExecutor(activity)
         val callback = object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                super.onAuthenticationSucceeded(result)
                 continuation.resume(BiometricResult.Success)
             }
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                super.onAuthenticationError(errorCode, errString)
                 continuation.resume(BiometricResult.Error(errString.toString()))
             }
 
             override fun onAuthenticationFailed() {
+                super.onAuthenticationFailed()
                 continuation.resume(BiometricResult.Failed)
             }
         }

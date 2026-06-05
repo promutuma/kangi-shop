@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.activity.compose.LocalActivity
+import androidx.fragment.app.FragmentActivity
 import ke.eelaminnovations.kangaishop.domain.model.AppUser
 import ke.eelaminnovations.kangaishop.domain.model.UserRole
 import ke.eelaminnovations.kangaishop.ui.components.bounceClick
@@ -39,7 +40,7 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val activity = LocalActivity.current as androidx.activity.ComponentActivity
+    val activity = LocalActivity.current as FragmentActivity
 
     LaunchedEffect(uiState.loginSuccess) {
         if (uiState.loginSuccess) onLoginSuccess()

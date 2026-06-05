@@ -115,7 +115,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
+    implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
     implementation("com.google.firebase:firebase-analytics")
