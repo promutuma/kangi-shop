@@ -160,7 +160,20 @@ class ReportsViewModel @Inject constructor(
 
     fun setPeriod(period: ReportPeriod) { _period.value = period }
 
+    fun getDeliveriesForDay(dayStart: Long): Flow<List<Pair<MilkDelivery, Person>>> {
+        return combine(
+            milkDeliveryRepository.getAllDeliveriesInRange(dayStart, dayStart + 86_400_000L),
+            personRepository.getAllPeople()
+        ) { deliveries, people ->
+            deliveries.mapNotNull { delivery ->
+                val person = people.find { it.id == delivery.personId }
+                if (person != null) delivery to person else null
+            }
+        }
+    }
+
     private fun periodRange(period: ReportPeriod): Pair<Long, Long> {
+
         val now = System.currentTimeMillis()
         val cal = Calendar.getInstance()
         return when (period) {

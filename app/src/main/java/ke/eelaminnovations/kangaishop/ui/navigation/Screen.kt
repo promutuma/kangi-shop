@@ -2,8 +2,9 @@ package ke.eelaminnovations.kangaishop.ui.navigation
 
 sealed class Screen(val route: String) {
     object Setup : Screen("setup")
-    object Login : Screen("login")
+    object Login : Screen("auth")
     object Home : Screen("home")
+
     object Milk : Screen("milk")
     object People : Screen("people")
     object Reports : Screen("reports")
@@ -14,6 +15,7 @@ sealed class Screen(val route: String) {
     object SmsLog : Screen("sms_log")
     object BackupSettings : Screen("backup_settings")
     object AppUsers : Screen("app_users")
+    object ConflictResolution : Screen("conflict_resolution")
 }
 
 val bottomNavItems = listOf(
@@ -22,3 +24,4 @@ val bottomNavItems = listOf(
     Screen.People,
     Screen.Reports
 )
+

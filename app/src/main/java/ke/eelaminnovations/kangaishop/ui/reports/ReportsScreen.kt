@@ -24,16 +24,27 @@ import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.data.*
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import ke.eelaminnovations.kangaishop.domain.model.Person
+import ke.eelaminnovations.kangaishop.domain.model.MilkDelivery
 import ke.eelaminnovations.kangaishop.domain.model.UserRole
+
 import ke.eelaminnovations.kangaishop.utils.PdfHelper
 import ke.eelaminnovations.kangaishop.utils.formatKes
 import ke.eelaminnovations.kangaishop.utils.formatLitres
+
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // Route: wires ViewModel
 @Composable
 fun ReportsRoute(onNavigateToLedger: (String) -> Unit, viewModel: ReportsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    ReportsScreen(uiState = uiState, onNavigateToLedger = onNavigateToLedger, onSetPeriod = viewModel::setPeriod)
+    ReportsScreen(
+        uiState = uiState,
+        onNavigateToLedger = onNavigateToLedger,
+        onSetPeriod = viewModel::setPeriod,
+        getDeliveriesForDay = viewModel::getDeliveriesForDay
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,9 +52,13 @@ fun ReportsRoute(onNavigateToLedger: (String) -> Unit, viewModel: ReportsViewMod
 fun ReportsScreen(
     uiState: ReportSummary,
     onNavigateToLedger: (String) -> Unit,
-    onSetPeriod: (ReportPeriod) -> Unit = {}
+    onSetPeriod: (ReportPeriod) -> Unit = {},
+    getDeliveriesForDay: (Long) -> kotlinx.coroutines.flow.Flow<List<Pair<MilkDelivery, Person>>> = { kotlinx.coroutines.flow.flowOf(emptyList()) }
 ) {
     val context = LocalContext.current
+    var selectedDayStart by remember { mutableStateOf<Long?>(null) }
+
+
 
     Scaffold(
         topBar = {
@@ -145,6 +160,8 @@ fun ReportsScreen(
                 if (uiState.dailyMilk.isNotEmpty()) {
                     item {
                         ReportCard(title = "Daily Delivery (Morning vs Evening split)") {
+                            Text("Tap a bar to see detail breakdown.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                            Spacer(Modifier.height(4.dp))
                             AndroidView(
                                 factory = { ctx ->
                                     BarChart(ctx).apply {
@@ -163,6 +180,17 @@ fun ReportsScreen(
                                         }
                                         axisRight.isEnabled = false
                                         legend.isEnabled = true
+                                        setOnChartValueSelectedListener(object : com.github.mikephil.charting.listener.OnChartValueSelectedListener {
+                                            override fun onValueSelected(e: Entry?, h: com.github.mikephil.charting.highlight.Highlight?) {
+                                                e?.let {
+                                                    val index = it.x.toInt()
+                                                    if (index >= 0 && index < uiState.dailyMilk.size) {
+                                                        selectedDayStart = uiState.dailyMilk[index].dayStart
+                                                    }
+                                                }
+                                            }
+                                            override fun onNothingSelected() {}
+                                        })
                                     }
                                 },
                                 update = { chart ->
@@ -235,6 +263,9 @@ fun ReportsScreen(
                     }
                 }
 
+
+
+
                 // Supplier debts
                 item {
                     ReportCard(title = "Supplier Debts") {
@@ -259,7 +290,73 @@ fun ReportsScreen(
             }
         }
     }
+
+    // Bottom Sheet Drilldown for selected day
+    val dayStartVal = selectedDayStart
+    if (dayStartVal != null) {
+        val details by getDeliveriesForDay(dayStartVal).collectAsStateWithLifecycle(initialValue = emptyList())
+        ModalBottomSheet(
+            onDismissRequest = { selectedDayStart = null },
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                val dayLabel = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault()).format(Date(dayStartVal))
+                Text(
+                    text = "Intake Breakdown: $dayLabel",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                if (details.isEmpty()) {
+                    Text("No deliveries recorded for this day.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(details.size) { index ->
+                            val (delivery, supplier) = details[index]
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(supplier.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                        Text(
+                                            text = "${delivery.session.name.lowercase().replaceFirstChar { it.uppercase() }} • Quality: ${delivery.quality.name}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(formatLitres(delivery.litres), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                        Text(formatKes(delivery.totalValue), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
+
 }
 
 @Composable

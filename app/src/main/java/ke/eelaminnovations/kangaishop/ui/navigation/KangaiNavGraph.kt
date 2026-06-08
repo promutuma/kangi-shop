@@ -39,7 +39,7 @@ fun KangaiNavGraph(
         }
 
         composable(Screen.Login.route) {
-            LoginScreen(
+            ke.eelaminnovations.kangaishop.ui.auth.AuthScreen(
                 onLoginSuccess = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
@@ -52,6 +52,7 @@ fun KangaiNavGraph(
                 }
             )
         }
+
 
         composable(Screen.Home.route) {
             HomeRoute(onNavigate = { route -> navController.navigate(route) })
@@ -91,7 +92,14 @@ fun KangaiNavGraph(
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToSmsLog = { navController.navigate(Screen.SmsLog.route) }
+                onNavigateToSmsLog = { navController.navigate(Screen.SmsLog.route) },
+                onNavigateToConflicts = { navController.navigate(Screen.ConflictResolution.route) }
+            )
+        }
+
+        composable(Screen.ConflictResolution.route) {
+            ke.eelaminnovations.kangaishop.ui.settings.ConflictResolutionScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -100,3 +108,4 @@ fun KangaiNavGraph(
         }
     }
 }
+

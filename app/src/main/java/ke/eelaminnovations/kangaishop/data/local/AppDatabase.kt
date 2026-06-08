@@ -13,9 +13,10 @@ import ke.eelaminnovations.kangaishop.data.local.migrations.MIGRATION_2_3
         MilkDeliveryEntity::class,
         LedgerTransactionEntity::class,
         SmsLogEntity::class,
-        BackupLogEntity::class
+        BackupLogEntity::class,
+        SyncConflictEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,4 +26,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ledgerTransactionDao(): LedgerTransactionDao
     abstract fun smsLogDao(): SmsLogDao
     abstract fun backupLogDao(): BackupLogDao
+    abstract fun syncConflictDao(): SyncConflictDao
 }

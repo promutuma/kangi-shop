@@ -8,6 +8,21 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.2.10")
+        force("io.grpc:grpc-core:1.68.2")
+        force("io.grpc:grpc-api:1.68.2")
+        force("io.grpc:grpc-okhttp:1.68.2")
+        force("io.grpc:grpc-android:1.68.2")
+        force("io.grpc:grpc-protobuf-lite:1.68.2")
+        force("io.grpc:grpc-stub:1.68.2")
+        force("io.grpc:grpc-util:1.68.2")
+        force("io.grpc:grpc-context:1.68.2")
+    }
+}
+
+
 android {
     namespace = "ke.eelaminnovations.kangaishop"
     compileSdk = 35

@@ -58,8 +58,10 @@ import java.util.Locale
 fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateToSmsLog: () -> Unit,
+    onNavigateToConflicts: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
+
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val driveBackups by viewModel.driveBackups.collectAsStateWithLifecycle()
@@ -452,9 +454,39 @@ fun SettingsScreen(
             }
 
             // Sync
-            SettingsSection(title = "Sync", icon = Icons.Default.Sync) {
-                OutlinedButton(onClick = viewModel::forceSyncNow) { Text("Force Sync Now") }
+            val conflicts by viewModel.unresolvedConflicts.collectAsStateWithLifecycle()
+            SettingsSection(title = "Sync & Conflicts", icon = Icons.Default.Sync) {
+                if (conflicts.isNotEmpty()) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Sync Conflicts Found", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                                Text("There are ${conflicts.size} unresolved sync conflicts.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f))
+                            }
+                            Button(
+                                onClick = onNavigateToConflicts,
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Resolve")
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(onClick = viewModel::forceSyncNow, modifier = Modifier.weight(1f)) { Text("Force Sync Now") }
+                }
             }
+
 
             // About
             SettingsSection(title = "About", icon = Icons.Default.Info) {

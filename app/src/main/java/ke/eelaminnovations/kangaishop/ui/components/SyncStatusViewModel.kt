@@ -12,11 +12,12 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import ke.eelaminnovations.kangaishop.data.local.dao.LedgerTransactionDao
 import ke.eelaminnovations.kangaishop.data.local.dao.MilkDeliveryDao
 import ke.eelaminnovations.kangaishop.data.local.dao.PersonDao
+import ke.eelaminnovations.kangaishop.data.workers.SyncWorker
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
-enum class SyncState { SYNCED, PENDING, OFFLINE }
+enum class SyncState { SYNCED, SYNCING, PENDING, OFFLINE }
 
 @HiltViewModel
 class SyncStatusViewModel @Inject constructor(
@@ -50,15 +51,25 @@ class SyncStatusViewModel @Inject constructor(
         }
     }
 
+    private val isSyncing: Flow<Boolean> = flow {
+        val workManager = androidx.work.WorkManager.getInstance(context)
+        workManager.getWorkInfosForUniqueWorkFlow(SyncWorker.WORK_NAME).collect { workInfos ->
+            val running = workInfos.any { it.state == androidx.work.WorkInfo.State.RUNNING }
+            emit(running)
+        }
+    }
+
     val syncState: StateFlow<SyncState> = combine(
         personDao.getPendingCountFlow(),
         milkDeliveryDao.getPendingCountFlow(),
         ledgerTransactionDao.getPendingCountFlow(),
-        isOnline
-    ) { pCount, mCount, tCount, online ->
+        isOnline,
+        isSyncing
+    ) { pCount, mCount, tCount, online, syncing ->
         val pendingTotal = pCount + mCount + tCount
         when {
             !online -> SyncState.OFFLINE
+            syncing -> SyncState.SYNCING
             pendingTotal > 0 -> SyncState.PENDING
             else -> SyncState.SYNCED
         }

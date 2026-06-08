@@ -71,21 +71,46 @@ class SetupViewModel @Inject constructor(
         }
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
-            val state = _uiState.value
-            val ownerId = UUID.randomUUID().toString()
-            val owner = AppUser(
-                id = ownerId,
-                name = state.ownerName.ifBlank { "Owner" },
-                phone = "",
-                pin = pin,
-                role = UserRole.OWNER,
-                isActive = true
-            )
-            userRepository.insertUser(owner)
-            settings.setShopName(state.shopName.ifBlank { "Kangai Shop" })
-            settings.setAppUserId(ownerId)
-            settings.setSetupComplete(true)
-            _uiState.update { it.copy(isSaving = false, setupComplete = true) }
+            try {
+                val state = _uiState.value
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val currentFirebaseUser = auth.currentUser
+                val ownerId = currentFirebaseUser?.uid ?: UUID.randomUUID().toString()
+                
+                val owner = AppUser(
+                    id = ownerId,
+                    name = state.ownerName.ifBlank { "Owner" },
+                    phone = currentFirebaseUser?.phoneNumber ?: "",
+                    pin = pin,
+                    role = UserRole.OWNER,
+                    isActive = true
+                )
+                userRepository.insertUser(owner)
+                val shopId = UUID.randomUUID().toString()
+                
+                // Write mapping document into Firestore users table
+                if (currentFirebaseUser != null) {
+                    val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    val userMapping = hashMapOf(
+                        "phone" to (currentFirebaseUser.phoneNumber ?: ""),
+                        "shopId" to shopId,
+                        "role" to "OWNER"
+                    )
+                    firestore.collection("users").document(currentFirebaseUser.uid).set(userMapping).addOnCompleteListener {
+                        // Suppress background failures, proceed locally first
+                    }
+                }
+                
+                settings.setShopId(shopId)
+                settings.setShopName(state.shopName.ifBlank { "Kangai Shop" })
+                settings.setAppUserId(ownerId)
+                settings.setSetupComplete(true)
+                _uiState.update { it.copy(isSaving = false, setupComplete = true) }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _uiState.update { it.copy(isSaving = false) }
+            }
         }
     }
 }
+

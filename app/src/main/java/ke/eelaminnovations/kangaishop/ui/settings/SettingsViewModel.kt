@@ -15,7 +15,9 @@ import ke.eelaminnovations.kangaishop.domain.model.BackupLog
 import ke.eelaminnovations.kangaishop.domain.model.UserRole
 import ke.eelaminnovations.kangaishop.domain.repository.AppUserRepository
 import ke.eelaminnovations.kangaishop.utils.BackupHelper
+import ke.eelaminnovations.kangaishop.utils.ConflictSerializer
 import kotlinx.coroutines.Dispatchers
+
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -65,10 +67,69 @@ class SettingsViewModel @Inject constructor(
     private val ledgerTransactionDao: LedgerTransactionDao,
     private val backupLogDao: BackupLogDao,
     private val appUserDao: AppUserDao,
+    private val syncConflictDao: ke.eelaminnovations.kangaishop.data.local.dao.SyncConflictDao,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
+    val unresolvedConflicts: StateFlow<List<ke.eelaminnovations.kangaishop.data.local.entity.SyncConflictEntity>> = syncConflictDao.getUnresolvedConflicts()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
+    fun resolveConflict(conflict: ke.eelaminnovations.kangaishop.data.local.entity.SyncConflictEntity, keepLocal: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (keepLocal) {
+                    // Force push to remote on next sync
+                    when (conflict.entityType) {
+                        "PERSON" -> {
+                            val local = personDao.getPersonById(conflict.entityId)
+                            if (local != null) {
+                                personDao.insertPerson(local.copy(syncStatus = "PENDING", lastModifiedAt = System.currentTimeMillis()))
+                            }
+                        }
+                        "DELIVERY" -> {
+                            val local = milkDeliveryDao.getDeliveryById(conflict.entityId)
+                            if (local != null) {
+                                milkDeliveryDao.insertDelivery(local.copy(syncStatus = "PENDING", lastModifiedAt = System.currentTimeMillis()))
+                            }
+                        }
+                        "TRANSACTION" -> {
+                            val local = ledgerTransactionDao.getTransactionById(conflict.entityId)
+                            if (local != null) {
+                                ledgerTransactionDao.insertTransaction(local.copy(syncStatus = "PENDING", lastModifiedAt = System.currentTimeMillis()))
+                            }
+                        }
+                    }
+                } else {
+                    // Keep remote: deserialize remoteContent and insert/overwrite local
+                    when (conflict.entityType) {
+                        "PERSON" -> {
+                            val remote = ConflictSerializer.deserializePerson(conflict.remoteContent)
+                            personDao.insertPerson(remote.copy(syncStatus = "SYNCED"))
+                        }
+                        "DELIVERY" -> {
+                            val remote = ConflictSerializer.deserializeDelivery(conflict.remoteContent)
+                            milkDeliveryDao.insertDelivery(remote.copy(syncStatus = "SYNCED"))
+                        }
+                        "TRANSACTION" -> {
+                            val remote = ConflictSerializer.deserializeTransaction(conflict.remoteContent)
+                            ledgerTransactionDao.insertTransaction(remote.copy(syncStatus = "SYNCED"))
+                        }
+                    }
+                }
+                // Mark conflict resolved / deleted
+                syncConflictDao.deleteConflict(conflict.id)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     private val _driveBackups = MutableStateFlow<List<DriveBackupFile>>(emptyList())
+
     val driveBackups: StateFlow<List<DriveBackupFile>> = _driveBackups.asStateFlow()
 
     private val _isLoadingBackups = MutableStateFlow(false)

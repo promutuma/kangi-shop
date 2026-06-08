@@ -10,6 +10,7 @@ import ke.eelaminnovations.kangaishop.data.local.dao.LedgerTransactionDao
 import ke.eelaminnovations.kangaishop.data.local.dao.MilkDeliveryDao
 import ke.eelaminnovations.kangaishop.data.local.dao.PersonDao
 import ke.eelaminnovations.kangaishop.data.settings.AppSettingsDataStore
+import ke.eelaminnovations.kangaishop.utils.ConflictSerializer
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import java.util.concurrent.TimeUnit
@@ -21,13 +22,17 @@ class SyncWorker @AssistedInject constructor(
     private val personDao: PersonDao,
     private val milkDeliveryDao: MilkDeliveryDao,
     private val ledgerTransactionDao: LedgerTransactionDao,
+    private val syncConflictDao: ke.eelaminnovations.kangaishop.data.local.dao.SyncConflictDao,
     private val settings: AppSettingsDataStore
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
         return try {
-            val shopId = settings.shopId.first()
-            if (shopId.isEmpty()) return Result.success()
+            var shopId = settings.shopId.first()
+            if (shopId.isEmpty()) {
+                shopId = java.util.UUID.randomUUID().toString()
+                settings.setShopId(shopId)
+            }
 
             val lastSync = settings.lastSyncTime.first()
             val syncStartTime = System.currentTimeMillis()
@@ -75,6 +80,21 @@ class SyncWorker @AssistedInject constructor(
                     id, name, phone, role, smsEnabled, notes, createdAt, lastModifiedAt, isDeleted, syncStatus, deviceId
                 )
                 val localPerson = personDao.getPersonById(id)
+                if (localPerson != null && localPerson.syncStatus == "PENDING" && lastModifiedAt > localPerson.lastModifiedAt) {
+                    val propertiesDifferent = localPerson.name != name || localPerson.phone != phone || localPerson.role != role
+                    if (propertiesDifferent) {
+                        val conflict = ke.eelaminnovations.kangaishop.data.local.entity.SyncConflictEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            entityType = "PERSON",
+                            entityId = id,
+                            title = "Profile Conflict: $name",
+                            localContent = ConflictSerializer.serializePerson(localPerson),
+                            remoteContent = ConflictSerializer.serializePerson(remotePerson)
+                        )
+                        syncConflictDao.insertConflict(conflict)
+                        continue
+                    }
+                }
                 if (localPerson == null || lastModifiedAt > localPerson.lastModifiedAt) {
                     personDao.insertPerson(remotePerson)
                 }
@@ -105,6 +125,21 @@ class SyncWorker @AssistedInject constructor(
                     id, personId, deliveryDate, session, litres, pricePerLitre, totalValue, quality, rejectedLitres, notes, recordedBy, createdAt, lastModifiedAt, isDeleted, syncStatus, deviceId
                 )
                 val localDelivery = milkDeliveryDao.getDeliveryById(id)
+                if (localDelivery != null && localDelivery.syncStatus == "PENDING" && lastModifiedAt > localDelivery.lastModifiedAt) {
+                    val propertiesDifferent = localDelivery.litres != litres || localDelivery.pricePerLitre != pricePerLitre || localDelivery.session != session
+                    if (propertiesDifferent) {
+                        val conflict = ke.eelaminnovations.kangaishop.data.local.entity.SyncConflictEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            entityType = "DELIVERY",
+                            entityId = id,
+                            title = "Milk Delivery Conflict (Litres: $litres)",
+                            localContent = ConflictSerializer.serializeDelivery(localDelivery),
+                            remoteContent = ConflictSerializer.serializeDelivery(remoteDelivery)
+                        )
+                        syncConflictDao.insertConflict(conflict)
+                        continue
+                    }
+                }
                 if (localDelivery == null || lastModifiedAt > localDelivery.lastModifiedAt) {
                     milkDeliveryDao.insertDelivery(remoteDelivery)
                 }
@@ -138,6 +173,21 @@ class SyncWorker @AssistedInject constructor(
                     id, personId, type, direction, amount, milkDeliveryId, goodsDescription, mpesaRef, transactionDate, runningBalance, parentTransactionId, smsSent, notes, recordedBy, createdAt, lastModifiedAt, isDeleted, syncStatus, deviceId
                 )
                 val localTx = ledgerTransactionDao.getTransactionById(id)
+                if (localTx != null && localTx.syncStatus == "PENDING" && lastModifiedAt > localTx.lastModifiedAt) {
+                    val propertiesDifferent = localTx.amount != amount || localTx.type != type || localTx.mpesaRef != mpesaRef
+                    if (propertiesDifferent) {
+                        val conflict = ke.eelaminnovations.kangaishop.data.local.entity.SyncConflictEntity(
+                            id = java.util.UUID.randomUUID().toString(),
+                            entityType = "TRANSACTION",
+                            entityId = id,
+                            title = "Transaction Conflict ($type)",
+                            localContent = ConflictSerializer.serializeTransaction(localTx),
+                            remoteContent = ConflictSerializer.serializeTransaction(remoteTx)
+                        )
+                        syncConflictDao.insertConflict(conflict)
+                        continue
+                    }
+                }
                 if (localTx == null || lastModifiedAt > localTx.lastModifiedAt) {
                     ledgerTransactionDao.insertTransaction(remoteTx)
                 }
